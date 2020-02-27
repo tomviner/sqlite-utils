@@ -175,21 +175,21 @@ def test_create_index(db_path):
 @pytest.mark.parametrize(
     "col_name,col_type,expected_schema",
     (
-        ("text", "TEXT", "CREATE TABLE [dogs] ( [name] TEXT , [text] TEXT)"),
+        ("text", "TEXT", 'CREATE TABLE "dogs" ( "name" TEXT , "text" TEXT)'),
         (
             "integer",
             "INTEGER",
-            "CREATE TABLE [dogs] ( [name] TEXT , [integer] INTEGER)",
+            'CREATE TABLE "dogs" ( "name" TEXT , "integer" INTEGER)',
         ),
-        ("float", "FLOAT", "CREATE TABLE [dogs] ( [name] TEXT , [float] FLOAT)"),
-        ("blob", "blob", "CREATE TABLE [dogs] ( [name] TEXT , [blob] BLOB)"),
-        ("default", None, "CREATE TABLE [dogs] ( [name] TEXT , [default] TEXT)"),
+        ("float", "FLOAT", 'CREATE TABLE "dogs" ( "name" TEXT , "float" FLOAT)'),
+        ("blob", "blob", 'CREATE TABLE "dogs" ( "name" TEXT , "blob" BLOB)'),
+        ("default", None, 'CREATE TABLE "dogs" ( "name" TEXT , "default" TEXT)'),
     ),
 )
 def test_add_column(db_path, col_name, col_type, expected_schema):
     db = Database(db_path)
     db.create_table("dogs", {"name": str})
-    assert "CREATE TABLE [dogs] ( [name] TEXT )" == collapse_whitespace(
+    assert 'CREATE TABLE "dogs" ( "name" TEXT )' == collapse_whitespace(
         db["dogs"].schema
     )
     args = ["add-column", db_path, "dogs", col_name]
@@ -202,7 +202,7 @@ def test_add_column(db_path, col_name, col_type, expected_schema):
 def test_add_column_not_null_default(db_path):
     db = Database(db_path)
     db.create_table("dogs", {"name": str})
-    assert "CREATE TABLE [dogs] ( [name] TEXT )" == collapse_whitespace(
+    assert 'CREATE TABLE "dogs" ( "name" TEXT )' == collapse_whitespace(
         db["dogs"].schema
     )
     args = [
@@ -215,7 +215,7 @@ def test_add_column_not_null_default(db_path):
     ]
     assert 0 == CliRunner().invoke(cli.cli, args).exit_code
     assert (
-        "CREATE TABLE [dogs] ( [name] TEXT , [nickname] TEXT NOT NULL DEFAULT 'dogs''dawg')"
+        'CREATE TABLE "dogs" ( "name" TEXT , "nickname" TEXT NOT NULL DEFAULT \'dogs\'\'dawg\')'
         == collapse_whitespace(db["dogs"].schema)
     )
 
@@ -278,7 +278,7 @@ def test_add_column_foreign_key(db_path):
     )
     assert 0 == result.exit_code, result.output
     assert (
-        "CREATE TABLE [books] ( [title] TEXT , [author_id] INTEGER, FOREIGN KEY(author_id) REFERENCES authors(id) )"
+        'CREATE TABLE "books" ( "title" TEXT , "author_id" INTEGER, FOREIGN KEY(author_id) REFERENCES authors(id) )'
         == collapse_whitespace(db["books"].schema)
     )
     # Try it again with a custom --fk-col
@@ -297,7 +297,7 @@ def test_add_column_foreign_key(db_path):
     )
     assert 0 == result.exit_code, result.output
     assert (
-        "CREATE TABLE [books] ( [title] TEXT , [author_id] INTEGER, [author_name_ref] TEXT, "
+        'CREATE TABLE "books" ( "title" TEXT , "author_id" INTEGER, "author_name_ref" TEXT, '
         "FOREIGN KEY(author_id) REFERENCES authors(id), "
         "FOREIGN KEY(author_name_ref) REFERENCES authors(name) )"
         == collapse_whitespace(db["books"].schema)
@@ -480,12 +480,12 @@ def test_insert_multiple_with_compound_primary_key(db_path, tmpdir):
     assert dogs == db.execute_returning_dicts("select * from dogs order by breed, id")
     assert {"breed", "id"} == set(db["dogs"].pks)
     assert (
-        "CREATE TABLE [dogs] (\n"
-        "   [breed] TEXT,\n"
-        "   [id] INTEGER,\n"
-        "   [name] TEXT,\n"
-        "   [age] INTEGER,\n"
-        "   PRIMARY KEY ([id], [breed])\n"
+        'CREATE TABLE "dogs" (\n'
+        '   "breed" TEXT,\n'
+        '   "id" INTEGER,\n'
+        '   "name" TEXT,\n'
+        '   "age" INTEGER,\n'
+        '   PRIMARY KEY ("id", "breed")\n'
         ")"
     ) == db["dogs"].schema
 
@@ -506,11 +506,11 @@ def test_insert_not_null_default(db_path, tmpdir):
     assert 0 == result.exit_code
     db = Database(db_path)
     assert (
-        "CREATE TABLE [dogs] (\n"
-        "   [id] INTEGER PRIMARY KEY,\n"
-        "   [name] TEXT NOT NULL,\n"
-        "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-        "   [score] INTEGER DEFAULT '5'\n)"
+        'CREATE TABLE "dogs" (\n'
+        '   "id" INTEGER PRIMARY KEY,\n'
+        '   "name" TEXT NOT NULL,\n'
+        '   "age" INTEGER NOT NULL DEFAULT \'1\',\n'
+        '   "score" INTEGER DEFAULT \'5\'\n)'
     ) == db["dogs"].schema
 
 
@@ -560,6 +560,25 @@ def test_insert_csv_tsv(content, option, db_path, tmpdir):
     result = CliRunner().invoke(cli.cli, ["insert", db_path, "data", file_path, option])
     assert 0 == result.exit_code
     assert [{"foo": "1", "bar": "2", "baz": "3"}] == list(db["data"].rows)
+
+
+def test_insert_csv_square_brackets_in_column_titles(db_path, tmpdir):
+    db = Database(db_path)
+    file_path = str(tmpdir / "insert.csv-tsv")
+    open(file_path, "w").write(
+        '"MTU (CET)","Day-ahead Price [EUR/MWh]"\n'
+        '"01.01.2016 00:00 - 01.01.2016 01:00","23.86"'
+    )
+    result = CliRunner().invoke(
+        cli.cli, ["insert", db_path, "data", file_path, "--csv"]
+    )
+    assert 0 == result.exit_code
+    assert [
+        {
+            "MTU (CET)": "01.01.2016 00:00 - 01.01.2016 01:00",
+            "Day-ahead Price [EUR/MWh]": "23.86",
+        }
+    ] == list(db["data"].rows)
 
 
 @pytest.mark.parametrize(

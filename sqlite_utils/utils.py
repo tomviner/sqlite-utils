@@ -33,3 +33,7 @@ def suggest_column_types(records):
             t = str
         column_types[key] = t
     return column_types
+
+
+def escape_identifier(s):
+    return '"{}"'.format(s.replace('"', '""'))

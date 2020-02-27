@@ -44,13 +44,13 @@ def test_create_table(fresh_db):
         {"name": "datetime_col", "type": "TEXT"},
     ] == [{"name": col.name, "type": col.type} for col in table.columns]
     assert (
-        "CREATE TABLE [test_table] (\n"
-        "   [text_col] TEXT,\n"
-        "   [float_col] FLOAT,\n"
-        "   [int_col] INTEGER,\n"
-        "   [bool_col] INTEGER,\n"
-        "   [bytes_col] BLOB,\n"
-        "   [datetime_col] TEXT\n"
+        'CREATE TABLE "test_table" (\n'
+        '   "text_col" TEXT,\n'
+        '   "float_col" FLOAT,\n'
+        '   "int_col" INTEGER,\n'
+        '   "bool_col" INTEGER,\n'
+        '   "bytes_col" BLOB,\n'
+        '   "datetime_col" TEXT\n'
         ")"
     ) == table.schema
 
@@ -60,11 +60,11 @@ def test_create_table_compound_primary_key(fresh_db):
         "test_table", {"id1": str, "id2": str, "value": int}, pk=("id1", "id2")
     )
     assert (
-        "CREATE TABLE [test_table] (\n"
-        "   [id1] TEXT,\n"
-        "   [id2] TEXT,\n"
-        "   [value] INTEGER,\n"
-        "   PRIMARY KEY ([id1], [id2])\n"
+        'CREATE TABLE "test_table" (\n'
+        '   "id1" TEXT,\n'
+        '   "id2" TEXT,\n'
+        '   "value" INTEGER,\n'
+        '   PRIMARY KEY ("id1", "id2")\n'
         ")"
     ) == table.schema
     assert ["id1", "id2"] == table.pks
@@ -88,7 +88,9 @@ def test_create_table_with_defaults(fresh_db):
         {"name": col.name, "type": col.type} for col in table.columns
     ]
     assert (
-        "CREATE TABLE [players] (\n   [name] TEXT DEFAULT 'bob''''bob',\n   [score] INTEGER DEFAULT 1\n)"
+        'CREATE TABLE "players" (\n'
+        '   "name" TEXT DEFAULT "bob\'\'bob",\n'
+        '   "score" INTEGER DEFAULT "1"\n)'
     ) == table.schema
 
 
@@ -111,7 +113,9 @@ def test_create_table_with_not_null(fresh_db):
         {"name": col.name, "type": col.type} for col in table.columns
     ]
     assert (
-        "CREATE TABLE [players] (\n   [name] TEXT NOT NULL,\n   [score] INTEGER NOT NULL DEFAULT 3\n)"
+        'CREATE TABLE "players" (\n'
+        '   "name" TEXT NOT NULL,\n'
+        '   "score" INTEGER NOT NULL DEFAULT 3\n)'
     ) == table.schema
 
 

@@ -1,4 +1,4 @@
-from .utils import sqlite3, OperationalError, suggest_column_types
+from .utils import sqlite3, OperationalError, escape_identifier, suggest_column_types
 from collections import namedtuple, OrderedDict
 import datetime
 import hashlib
@@ -281,14 +281,18 @@ class Database:
                 )
             if column_name in foreign_keys_by_column:
                 column_extras.append(
-                    "REFERENCES [{other_table}]([{other_column}])".format(
-                        other_table=foreign_keys_by_column[column_name].other_table,
-                        other_column=foreign_keys_by_column[column_name].other_column,
+                    "REFERENCES {other_table}({other_column})".format(
+                        other_table=escape_identifier(
+                            foreign_keys_by_column[column_name].other_table
+                        ),
+                        other_column=escape_identifier(
+                            foreign_keys_by_column[column_name].other_column
+                        ),
                     )
                 )
             column_defs.append(
-                "   [{column_name}] {column_type}{column_extras}".format(
-                    column_name=column_name,
+                "   {column_name} {column_type}{column_extras}".format(
+                    column_name=escape_identifier(column_name),
                     column_type=COLUMN_TYPE_MAPPING[column_type],
                     column_extras=(" " + " ".join(column_extras))
                     if column_extras
@@ -298,14 +302,14 @@ class Database:
         extra_pk = ""
         if single_pk is None and pk and len(pk) > 1:
             extra_pk = ",\n   PRIMARY KEY ({pks})".format(
-                pks=", ".join(["[{}]".format(p) for p in pk])
+                pks=", ".join([escape_identifier(p) for p in pk])
             )
         columns_sql = ",\n".join(column_defs)
-        sql = """CREATE TABLE [{table}] (
+        sql = """CREATE TABLE {table} (
 {columns_sql}{extra_pk}
 );
         """.format(
-            table=name, columns_sql=columns_sql, extra_pk=extra_pk
+            table=escape_identifier(name), columns_sql=columns_sql, extra_pk=extra_pk
         )
         self.conn.execute(sql)
         return self.table(
@@ -323,7 +327,7 @@ class Database:
             """
             CREATE VIEW {name} AS {sql}
         """.format(
-                name=name, sql=sql
+                name=escape_identifier(name), sql=sql
             )
         )
 
@@ -665,9 +669,9 @@ class Table(Queryable):
             not_null_sql = "NOT NULL DEFAULT {}".format(
                 self.db.escape(not_null_default)
             )
-        sql = "ALTER TABLE [{table}] ADD COLUMN [{col_name}] {col_type}{not_null_default};".format(
-            table=self.name,
-            col_name=col_name,
+        sql = "ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{not_null_default};".format(
+            table=escape_identifier(self.name),
+            col_name=escape_identifier(col_name),
             col_type=fk_col_type or COLUMN_TYPE_MAPPING[col_type],
             not_null_default=(" " + not_null_sql) if not_null_sql else "",
         )
@@ -1039,8 +1043,8 @@ class Table(Queryable):
                     queries_and_params.append((sql, [record[col] for col in pks]))
                     # UPDATE [book] SET [name] = 'Programming' WHERE [id] = 1001;
                     set_cols = [col for col in all_columns if col not in pks]
-                    sql2 = "UPDATE [{table}] SET {pairs} WHERE {wheres}".format(
-                        table=self.name,
+                    sql2 = "UPDATE {table} SET {pairs} WHERE {wheres}".format(
+                        table=escape_identifier(self.name),
                         pairs=", ".join(
                             "[{}] = {}".format(col, conversions.get(col, "?"))
                             for col in set_cols
@@ -1061,11 +1065,11 @@ class Table(Queryable):
                 elif ignore:
                     or_what = "OR IGNORE "
                 sql = """
-                    INSERT {or_what}INTO [{table}] ({columns}) VALUES {rows};
+                    INSERT {or_what}INTO {table} ({columns}) VALUES {rows};
                 """.format(
                     or_what=or_what,
-                    table=self.name,
-                    columns=", ".join("[{}]".format(c) for c in all_columns),
+                    table=escape_identifier(self.name),
+                    columns=", ".join(escape_identifier(c) for c in all_columns),
                     rows=", ".join(
                         """
                         ({placeholders})
